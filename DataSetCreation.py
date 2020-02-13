@@ -27,7 +27,7 @@ def get_sfx_names_and_methods(data_frame):
         name = str(row[1]["sfx name"])
         if name[:6] != "sound:":
             continue
-        name = name[7:]
+        name = name[6:].strip()
         methods_used = get_methods_used_from_row(row)
         sound = [name] + get_method_columns_from_list(methods_used)
         names_and_methods.append(sound)
@@ -84,23 +84,60 @@ def get_method_columns_from_list(methods_list):
 
 def save_names_and_methods_to_csv(names_and_methods):
     data_frame = pd.DataFrame(names_and_methods, columns=['name', 'record', 'foley', 'library'])
-    data_frame.to_csv("data_set.csv", index=False)
+    data_frame.to_csv("raw_data_set.csv", index=False)
 
 
-def convert_to_one_hot(string):
-    word_list = string.split()
-    word_array = np.array(word_list)
-    label_encoder = LabelEncoder()
-    vec = label_encoder.fit_transform(word_array)
-    return vec
+class WordEncoder:
+    def __init__(self):
+        self.label_encoder = LabelEncoder()
+        try:
+            self.load_fit()
+        except FileNotFoundError:
+            pass
+
+    def load_fit(self):
+        self.label_encoder.classes_ = np.load('classes_.npy')
+
+    def fit_label_encoder_from_words(self, csv_path, column):
+        data_frame = pd.read_csv(csv_path)
+        complete_word_list = []
+        for row in data_frame[column]:
+            row_word_list = row.split()
+            for word in row_word_list:
+                if word not in complete_word_list:
+                    complete_word_list.append(word)
+        self.label_encoder.fit(complete_word_list)
+        self.save_word_list()
+        self.save_fit()
+
+    def save_word_list(self):
+        name_mapping = list(zip(self.label_encoder.classes_, self.label_encoder.transform(self.label_encoder.classes_)))
+        data_frame = pd.DataFrame(name_mapping, columns=['word', 'map'])
+        data_frame.to_csv('word_list.csv', index=False)
+
+    def save_fit(self):
+        np.save("classes_.npy", self.label_encoder.classes_)
+
+    def convert_to_one_hot(self, string):
+        word_list = string.split()
+        word_array = np.array(word_list)
+        vec = self.label_encoder.transform(word_array)
+        return " ".join([str(num) for num in vec])
+
+    def convert_csv_column_to_one_hot(self, path, column):
+        data_frame = pd.read_csv(path)
+        data_frame[column] = data_frame[column].apply(self.convert_to_one_hot)
+        return data_frame
+
+    def decode_word_list(self, word_list):
+        print(word_list)
+        return self.label_encoder.inverse_transform(np.fromstring(word_list, dtype=int, sep=' '))
 
 
-def convert_csv_column_to_one_hot(path, column):
-    data_frame = pd.read_csv(path)
-    new_column = []
-    for value in data_frame[column]:
-        new_column.append(convert_to_one_hot(value))
-    print(new_column)
+# load_folder_of_excel_into_data_set("C:\\Users\\Josh\\Documents\\SFX List Train Sheets")
 
-
-convert_csv_column_to_one_hot("data_set.csv", "name")
+# word_encoder = WordEncoder()
+# word_encoder.fit_label_encoder_from_words("raw_data_set.csv", 'name')
+# test_data = word_encoder.convert_csv_column_to_one_hot("raw_data_set.csv", "name")
+# test_data.to_csv("data_set.csv", index=False)
+# print(word_encoder.decode_word_list(test_data["name"][50]))
