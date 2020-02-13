@@ -1,4 +1,6 @@
 import pandas as pd
+from sklearn.preprocessing import LabelEncoder
+import numpy as np
 import math
 import os
 
@@ -84,3 +86,21 @@ def save_names_and_methods_to_csv(names_and_methods):
     data_frame = pd.DataFrame(names_and_methods, columns=['name', 'record', 'foley', 'library'])
     data_frame.to_csv("data_set.csv", index=False)
 
+
+def convert_to_one_hot(string):
+    word_list = string.split()
+    word_array = np.array(word_list)
+    label_encoder = LabelEncoder()
+    vec = label_encoder.fit_transform(word_array)
+    return vec
+
+
+def convert_csv_column_to_one_hot(path, column):
+    data_frame = pd.read_csv(path)
+    new_column = []
+    for value in data_frame[column]:
+        new_column.append(convert_to_one_hot(value))
+    print(new_column)
+
+
+convert_csv_column_to_one_hot("data_set.csv", "name")
